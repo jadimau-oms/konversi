@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Interaktif OrderOnline - NFZ & MBY dkk</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-slate-900 text-white shadow-md">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div>
+        <h1 class="text-xl font-bold tracking-tight">📊 Dashboard Analisa OrderOnline (NFZ & MBY dkk)</h1>
+        <p class="text-xs text-slate-300">Upload satu atau beberapa file .CSV kapan saja — otomatis memetakan Bulan, CS, Funnel & 29 Kode Pengiklan</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="cursor-pointer bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow transition">
+          + Tambah / Upload File .CSV
+          <input id="csvInput" type="file" accept=".csv" multiple class="hidden" />
+        </label>
+        <button id="resetBtn" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-2 rounded-lg transition">
+          Reset Data
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+    <!-- Dropzone Info -->
+    <div id="dropzone" class="border-2 border-dashed border-blue-400 bg-blue-50/50 rounded-xl p-5 text-center transition hover:bg-blue-50">
+      <p class="text-sm font-medium text-blue-900">
+        Tarik & Lepaskan (Drag & Drop) file <code class="bg-blue-100 px-1.5 py-0.5 rounded font-bold">.csv</code> OrderOnline ke area ini, atau klik tombol <b>+ Tambah / Upload File .CSV</b> di kanan atas.
+      </p>
+      <p id="fileStatus" class="text-xs text-slate-600 mt-1">Belum ada file CSV yang diunggah. Anda dapat mengunggah beberapa file CSV sekaligus.</p>
+    </div>
+
+    <!-- Filter Bar -->
+    <section class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Filter Bulan</label>
+        <select id="filterMonth" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+          <option value="ALL">Semua Bulan</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Filter Tim</label>
+        <select id="filterTeam" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+          <option value="ALL">Semua Tim (NFZ & MBY dkk)</option>
+          <option value="NFZ">Tim NFZ</option>
+          <option value="MBY dkk">Tim MBY dkk</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Grup Pengiklan</label>
+        <select id="filterGroup" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+          <option value="ALL">Semua Grup Pengiklan</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Metode Pembayaran</label>
+        <select id="filterMethod" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+          <option value="ALL">Semua Metode</option>
+          <option value="cod">COD</option>
+          <option value="bank_transfer">Bank Transfer</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Filter CS</label>
+        <select id="filterCS" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+          <option value="ALL">Semua CS</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- KPI Cards -->
+    <section class="grid grid-cols-2 md:grid-cols-6 gap-4">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <p class="text-xs text-slate-500 font-semibold uppercase">Total Orders</p>
+        <p id="kpiTotal" class="text-2xl font-bold text-slate-900 mt-1">0</p>
+        <p id="kpiClosingSub" class="text-xs text-slate-500 mt-1">Closing: 0 (0%)</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-emerald-200">
+        <p class="text-xs text-emerald-700 font-semibold uppercase">Total Paid</p>
+        <p id="kpiPaid" class="text-2xl font-bold text-emerald-600 mt-1">0</p>
+        <p id="kpiPaidRatio" class="text-xs font-semibold text-emerald-700 mt-1">Paid Ratio: 0%</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-rose-200">
+        <p class="text-xs text-rose-700 font-semibold uppercase">Unpaid (Proc & Comp)</p>
+        <p id="kpiUnpaidPC" class="text-2xl font-bold text-rose-600 mt-1">0</p>
+        <p id="kpiUnpaidAll" class="text-xs text-slate-500 mt-1">Total Unpaid (All): 0</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <p class="text-xs text-slate-500 font-semibold uppercase">Order COD</p>
+        <p id="kpiCOD" class="text-2xl font-bold text-slate-900 mt-1">0</p>
+        <p id="kpiCODSub" class="text-xs text-slate-500 mt-1">Paid COD: 0 (0%)</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <p class="text-xs text-slate-500 font-semibold uppercase">Bank Transfer</p>
+        <p id="kpiBT" class="text-2xl font-bold text-slate-900 mt-1">0</p>
+        <p id="kpiBTSub" class="text-xs text-slate-500 mt-1">Paid TF: 0 (0%)</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-blue-200">
+        <p class="text-xs text-blue-700 font-semibold uppercase">Net Revenue (Paid)</p>
+        <p id="kpiNetRev" class="text-lg font-bold text-blue-700 mt-1">Rp 0</p>
+        <p id="kpiGrossRev" class="text-xs text-slate-500 mt-1">Gross: Rp 0</p>
+      </div>
+    </section>
+
+    <!-- Charts Row -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <h2 class="text-sm font-bold text-slate-800 mb-3">1. Tren Order & Paid per Bulan</h2>
+        <canvas id="chartMonth" height="210"></canvas>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <h2 class="text-sm font-bold text-slate-800 mb-3">2. Funnel Konversi (Order → Closing → Shipped → Paid)</h2>
+        <canvas id="chartFunnel" height="210"></canvas>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <h2 class="text-sm font-bold text-slate-800 mb-3">3. Performa Konversi per CS</h2>
+        <canvas id="chartCS" height="210"></canvas>
+      </div>
+    </section>
+
+    <!-- Advertiser Table -->
+    <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div>
+          <h2 class="text-base font-bold text-slate-800">Tabel Analisa Pengiklan & Sub-Pengiklan</h2>
+          <p class="text-xs text-slate-500">Menampilkan Total Order, Closing, Shipped, Paid, Paid Ratio, dan Unpaid (Processed & Completed)</p>
+        </div>
+        <input id="searchAdv" type="text" placeholder="Cari nama pengiklan / grup..." class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm" />
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-sm">
+          <thead class="bg-slate-100 text-slate-600 text-xs uppercase">
+            <tr>
+              <th class="py-2.5 px-3">Tim</th>
+              <th class="py-2.5 px-3">Grup Induk</th>
+              <th class="py-2.5 px-3">Pengiklan (Kode)</th>
+              <th class="py-2.5 px-3 text-right">Total Order</th>
+              <th class="py-2.5 px-3 text-right">Closing</th>
+              <th class="py-2.5 px-3 text-right">Shipped</th>
+              <th class="py-2.5 px-3 text-right text-emerald-700">Total Paid</th>
+              <th class="py-2.5 px-3 text-right text-emerald-700">Paid Ratio</th>
+              <th class="py-2.5 px-3 text-right text-rose-700">Unpaid (Proc+Comp)</th>
+              <th class="py-2.5 px-3 text-right">Order COD</th>
+              <th class="py-2.5 px-3 text-right">Bank Transfer</th>
+            </tr>
+          </thead>
+          <tbody id="tableAdvBody" class="divide-y divide-slate-200"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- CS Funnel Table -->
+    <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="p-4 border-b border-slate-200">
+        <h2 class="text-base font-bold text-slate-800">Tabel Funnel Konversi CS (Closing ke Delivered/Paid)</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-sm">
+          <thead class="bg-slate-100 text-slate-600 text-xs uppercase">
+            <tr>
+              <th class="py-2.5 px-4">Nama CS</th>
+              <th class="py-2.5 px-4 text-right">Total Order</th>
+              <th class="py-2.5 px-4 text-right">Closing (Proc+Comp)</th>
+              <th class="py-2.5 px-4 text-right">Closing Rate</th>
+              <th class="py-2.5 px-4 text-right">Shipped (Completed)</th>
+              <th class="py-2.5 px-4 text-right text-emerald-700">Delivered (Paid)</th>
+              <th class="py-2.5 px-4 text-right text-rose-700">Unpaid (Proc+Comp)</th>
+              <th class="py-2.5 px-4 text-right text-emerald-700">Paid Ratio (Total)</th>
+              <th class="py-2.5 px-4 text-right text-blue-700">Konversi Closing → Paid</th>
+            </tr>
+          </thead>
+          <tbody id="tableCSBody" class="divide-y divide-slate-200"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // Hirarki Aturan Pengiklan (Sub-pengiklan diperiksa lebih dulu sebelum Induk)
+    const ADVERTISER_RULES = [
+      { code: 'B-S-NFZ', name: 'Albar (B-S-NFZ)', group: 'Sandy (S-NFZ)', team: 'NFZ' },
+      { code: 'A-S-NFZ', name: 'Aska (A-S-NFZ)', group: 'Sandy (S-NFZ)', team: 'NFZ' },
+      { code: 'A-S-NF',  name: 'Aska (A-S-NFZ)', group: 'Sandy (S-NFZ)', team: 'NFZ' },
+      { code: 'G-S-NFZ', name: 'Galih (G-S-NFZ)', group: 'Sandy (S-NFZ)', team: 'NFZ' },
+      { code: 'R-S-NFZ', name: 'Alfin (R-S-NFZ)', group: 'Sandy (S-NFZ)', team: 'NFZ' },
+      { code: 'M-S-NFZ', name: 'Radi (M-S-NFZ)', group: 'Sandy (S-NFZ)', team: 'NFZ' },
+      { code: 'S-NFZ',   name: 'Sandy - Utama (S-NFZ)', group: 'Sandy (S-NFZ)', team: 'NFZ' },
+
+      { code: 'I-K-NFZ', name: 'Ichwan (I-K-NFZ)', group: 'Kharis (K-NFZ)', team: 'NFZ' },
+      { code: 'B-K-NFZ', name: 'Bagas (B-K-NFZ)', group: 'Kharis (K-NFZ)', team: 'NFZ' },
+      { code: 'A-K-NFZ', name: 'Alfin Sehat (A-K-NFZ)', group: 'Kharis (K-NFZ)', team: 'NFZ' },
+      { code: 'K-NFZ',   name: 'Kharis - Utama (K-NFZ)', group: 'Kharis (K-NFZ)', team: 'NFZ' },
+
+      { code: 'D-Y-NFZ', name: 'Duril (D-Y-NFZ)', group: 'Yusuf (Y-NFZ)', team: 'NFZ' },
+      { code: 'A-Y-NFZ', name: 'Azzam (A-Y-NFZ)', group: 'Yusuf (Y-NFZ)', team: 'NFZ' },
+      { code: 'Y-NFZ',   name: 'Yusuf - Utama (Y-NFZ)', group: 'Yusuf (Y-NFZ)', team: 'NFZ' },
+
+      { code: 'H-NFZ',   name: 'Hasbi (H-NFZ)', group: 'Hasbi', team: 'NFZ' },
+      { code: 'H NFZ',   name: 'Hasbi (H-NFZ)', group: 'Hasbi', team: 'NFZ' },
+      { code: 'HNFZ',    name: 'Hasbi (H-NFZ)', group: 'Hasbi', team: 'NFZ' },
+      { code: '1-NFZ',   name: 'Pak Wok (1-NFZ)', group: 'Pak Wok', team: 'NFZ' },
+      { code: 'F-NFZ',   name: 'Faiqun (F-NFZ)', group: 'Faiqun', team: 'NFZ' },
+      { code: 'R-NFZ',   name: 'Riski (R-NFZ)', group: 'Riski', team: 'NFZ' },
+      { code: 'O-NFZ',   name: 'Rofiq (O-NFZ)', group: 'Rofiq', team: 'NFZ' },
+      { code: 'C-NFZ',   name: 'Ichsan (C-NFZ)', group: 'Ichsan', team: 'NFZ' },
+      { code: 'I-NFZ',   name: 'Hakim (I-NFZ)', group: 'Hakim', team: 'NFZ' },
+      { code: 'L-NFZ',   name: 'Yuslich (L-NFZ)', group: 'Yuslich', team: 'NFZ' },
+      { code: 'U-NFZ',   name: 'Ulil (U-NFZ)', group: 'Ulil', team: 'NFZ' },
+
+      { code: 'MBY',     name: 'Boy (MBY)', group: 'Boy (MBY)', team: 'MBY dkk' },
+      { code: 'IPD',     name: 'Ifud (IPD)', group: 'Ifud (IPD)', team: 'MBY dkk' },
+      { code: 'IDR',     name: 'Anton (IDR)', group: 'Anton (IDR)', team: 'MBY dkk' },
+      { code: 'IDX',     name: 'Sawit (IDX)', group: 'Sawit (IDX)', team: 'MBY dkk' },
+      { code: 'RZZ',     name: 'Rozi (RZZ)', group: 'Rozi (RZZ)', team: 'MBY dkk' },
+      { code: 'IHY',     name: 'Ihya (IHY)', group: 'Ihya (IHY)', team: 'MBY dkk' },
+      { code: 'MBI',     name: 'Barik (MBI)', group: 'Barik (MBI)', team: 'MBY dkk' }
+    ];
+
+    let allOrdersMap = new Map(); // Deduplikasi otomatis berdasarkan order_id
+    let charts = {};
+
+    function classifyProduct(productName) {
+      const upper = (productName || '').toUpperCase();
+      for (const rule of ADVERTISER_RULES) {
+        if (upper.includes(rule.code)) return rule;
+      }
+      return { code: 'OTHER', name: 'Lainnya / Unmapped', group: 'Lainnya', team: 'Lainnya' };
+    }
+
+    function parseMonth(createdAt) {
+      if (!createdAt) return 'Unknown';
+      // Format OrderOnline: DD-MM-YYYY - HH:mm
+      const m = createdAt.trim().match(/^(\d{2})-(\d{2})-(\d{4})/);
+      if (m) return `${m[3]}-${m[2]}`;
+      return createdAt.slice(0, 7);
+    }
+
+    function handleFiles(files) {
+      const fileList = Array.from(files);
+      if (!fileList.length) return;
+      let processedFiles = 0;
+
+      fileList.forEach(file => {
+        Papa.parse(file, {
+          skipEmptyLines: true,
+          complete: function(results) {
+            const rows = results.data;
+            if (rows.length > 1) {
+              const header = rows[0].map(h => (h || '').trim());
+              const idxOrder = header.indexOf('order_id');
+              const idxProd  = header.indexOf('product');
+              const idxStat  = header.indexOf('status');
+              const idxPaySt = header.indexOf('payment_status');
+              const idxPayMt = header.indexOf('payment_method');
+              const idxGross = header.indexOf('gross_revenue');
+              const idxNet   = header.indexOf('net_revenue');
+              const idxCreat = header.indexOf('created_at');
+              const idxCS    = header.indexOf('handled_by');
+
+              for (let i = 1; i < rows.length; i++) {
+                const r = rows[i];
+                const orderId = (r[idxOrder] || '').trim();
+                // Abaikan baris lanjutan multi-item yang tidak memiliki order_id numerik
+                if (!orderId || !/^\d+$/.test(orderId)) continue;
+
+                const prod = (r[idxProd] || '').trim();
+                const status = (r[idxStat] || '').trim().toLowerCase();
+                const payStatus = (r[idxPaySt] || '').trim().toLowerCase();
+                const payMethod = (r[idxPayMt] || '').trim().toLowerCase();
+                const gross = parseFloat(r[idxGross]) || 0;
+                const net = parseFloat(r[idxNet]) || 0;
+                const createdAt = (r[idxCreat] || '').trim();
+                const cs = (r[idxCS] || '').trim() || '(Tanpa CS)';
+                const advInfo = classifyProduct(prod);
+
+                allOrdersMap.set(orderId, {
+                  orderId,
+                  product: prod,
+                  status,
+                  payStatus,
+                  payMethod,
+                  gross,
+                  net,
+                  month: parseMonth(createdAt),
+                  cs,
+                  advName: advInfo.name,
+                  advGroup: advInfo.group,
+                  team: advInfo.team
+                });
+              }
+            }
+            processedFiles++;
+            if (processedFiles === fileList.length) {
+              document.getElementById('fileStatus').innerText =
+                `Berhasil memuat ${allOrdersMap.size.toLocaleString('id-ID')} order unik dari file CSV.`;
+              populateFilters();
+              renderDashboard();
+            }
+          }
+        });
+      });
+    }
+
+    function populateFilters() {
+      const orders = Array.from(allOrdersMap.values());
+      const months = Array.from(new Set(orders.map(o => o.month))).sort();
+      const groups = Array.from(new Set(orders.map(o => o.advGroup))).sort();
+      const cses   = Array.from(new Set(orders.map(o => o.cs))).sort();
+
+      const selMonth = document.getElementById('filterMonth');
+      const curM = selMonth.value;
+      selMonth.innerHTML = '<option value="ALL">Semua Bulan</option>' +
+        months.map(m => `<option value="${m}">${m}</option>`).join('');
+      if (months.includes(curM)) selMonth.value = curM;
+
+      const selGroup = document.getElementById('filterGroup');
+      const curG = selGroup.value;
+      selGroup.innerHTML = '<option value="ALL">Semua Grup Pengiklan</option>' +
+        groups.map(g => `<option value="${g}">${g}</option>`).join('');
+      if (groups.includes(curG)) selGroup.value = curG;
+
+      const selCS = document.getElementById('filterCS');
+      const curC = selCS.value;
+      selCS.innerHTML = '<option value="ALL">Semua CS</option>' +
+        cses.map(c => `<option value="${c}">${c}</option>`).join('');
+      if (cses.includes(curC)) selCS.value = curC;
+    }
+
+    function getFilteredOrders() {
+      const m = document.getElementById('filterMonth').value;
+      const t = document.getElementById('filterTeam').value;
+      const g = document.getElementById('filterGroup').value;
+      const pm = document.getElementById('filterMethod').value;
+      const cs = document.getElementById('filterCS').value;
+
+      return Array.from(allOrdersMap.values()).filter(o => {
+        if (m !== 'ALL' && o.month !== m) return false;
+        if (t !== 'ALL' && o.team !== t) return false;
+        if (g !== 'ALL' && o.advGroup !== g) return false;
+        if (pm !== 'ALL' && o.payMethod !== pm) return false;
+        if (cs !== 'ALL' && o.cs !== cs) return false;
+        return true;
+      });
+    }
+
+    function renderDashboard() {
+      const data = getFilteredOrders();
+      const total = data.length;
+      let paid = 0, closing = 0, shipped = 0, unpaidPC = 0, unpaidAll = 0;
+      let cod = 0, codPaid = 0, bt = 0, btPaid = 0;
+      let netRevPaid = 0, grossRevPaid = 0;
+
+      data.forEach(o => {
+        const isPaid = o.payStatus === 'paid';
+        const isClosing = o.status === 'processing' || o.status === 'completed';
+        const isShipped = o.status === 'completed';
+
+        if (isPaid) {
+          paid++;
+          netRevPaid += o.net;
+          grossRevPaid += o.gross;
+        } else {
+          unpaidAll++;
+          if (isClosing) unpaidPC++;
+        }
+        if (isClosing) closing++;
+        if (isShipped) shipped++;
+
+        if (o.payMethod === 'cod') {
+          cod++;
+          if (isPaid) codPaid++;
+        } else if (o.payMethod === 'bank_transfer') {
+          bt++;
+          if (isPaid) btPaid++;
+        }
+      });
+
+      const pct = (num, den) => den ? ((num / den) * 100).toFixed(2) + '%' : '0%';
+
+      document.getElementById('kpiTotal').innerText = total.toLocaleString('id-ID');
+      document.getElementById('kpiClosingSub').innerText = `Closing: ${closing.toLocaleString('id-ID')} (${pct(closing, total)})`;
+      document.getElementById('kpiPaid').innerText = paid.toLocaleString('id-ID');
+      document.getElementById('kpiPaidRatio').innerText = `Paid Ratio: ${pct(paid, total)}`;
+      document.getElementById('kpiUnpaidPC').innerText = unpaidPC.toLocaleString('id-ID');
+      document.getElementById('kpiUnpaidAll').innerText = `Semua Unpaid: ${unpaidAll.toLocaleString('id-ID')}`;
+      document.getElementById('kpiCOD').innerText = cod.toLocaleString('id-ID');
+      document.getElementById('kpiCODSub').innerText = `Paid COD: ${codPaid.toLocaleString('id-ID')} (${pct(codPaid, cod)})`;
+      document.getElementById('kpiBT').innerText = bt.toLocaleString('id-ID');
+      document.getElementById('kpiBTSub').innerText = `Paid TF: ${btPaid.toLocaleString('id-ID')} (${pct(btPaid, bt)})`;
+      document.getElementById('kpiNetRev').innerText = 'Rp ' + Math.round(netRevPaid).toLocaleString('id-ID');
+      document.getElementById('kpiGrossRev').innerText = 'Gross: Rp ' + Math.round(grossRevPaid).toLocaleString('id-ID');
+
+      renderCharts(data, { total, closing, shipped, paid });
+      renderTables(data);
+    }
+
+    function renderCharts(data, funnelTotals) {
+      // 1. Chart Bulan
+      const byMonth = {};
+      data.forEach(o => {
+        if (!byMonth[o.month]) byMonth[o.month] = { total: 0, paid: 0, unpaidPC: 0 };
+        byMonth[o.month].total++;
+        if (o.payStatus === 'paid') byMonth[o.month].paid++;
+        if (o.payStatus === 'unpaid' && (o.status === 'processing' || o.status === 'completed')) byMonth[o.month].unpaidPC++;
+      });
+      const mLabels = Object.keys(byMonth).sort();
+
+      if (charts.month) charts.month.destroy();
+      charts.month = new Chart(document.getElementById('chartMonth'), {
+        type: 'bar',
+        data: {
+          labels: mLabels,
+          datasets: [
+            { label: 'Total Order', data: mLabels.map(m => byMonth[m].total), backgroundColor: '#94A3B8' },
+            { label: 'Total Paid', data: mLabels.map(m => byMonth[m].paid), backgroundColor: '#10B981' },
+            { label: 'Unpaid (Proc+Comp)', data: mLabels.map(m => byMonth[m].unpaidPC), backgroundColor: '#EF4444' }
+          ]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+      });
+
+      // 2. Chart Funnel
+      if (charts.funnel) charts.funnel.destroy();
+      charts.funnel = new Chart(document.getElementById('chartFunnel'), {
+        type: 'bar',
+        data: {
+          labels: ['1. Order Masuk', '2. Closing', '3. Shipped', '4. Delivered (Paid)'],
+          datasets: [{
+            label: 'Jumlah Order',
+            data: [funnelTotals.total, funnelTotals.closing, funnelTotals.shipped, funnelTotals.paid],
+            backgroundColor: ['#64748B', '#0EA5E9', '#6366F1', '#10B981']
+          }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+      });
+
+      // 3. Chart CS
+      const byCS = {};
+      data.forEach(o => {
+        if (!byCS[o.cs]) byCS[o.cs] = { total: 0, closing: 0, paid: 0 };
+        byCS[o.cs].total++;
+        if (o.status === 'processing' || o.status === 'completed') byCS[o.cs].closing++;
+        if (o.payStatus === 'paid') byCS[o.cs].paid++;
+      });
+      const csLabels = Object.keys(byCS).sort((a, b) => byCS[b].total - byCS[a].total);
+
+      if (charts.cs) charts.cs.destroy();
+      charts.cs = new Chart(document.getElementById('chartCS'), {
+        type: 'bar',
+        data: {
+          labels: csLabels,
+          datasets: [
+            { label: 'Total Order', data: csLabels.map(c => byCS[c].total), backgroundColor: '#94A3B8' },
+            { label: 'Closing', data: csLabels.map(c => byCS[c].closing), backgroundColor: '#0EA5E9' },
+            { label: 'Paid', data: csLabels.map(c => byCS[c].paid), backgroundColor: '#10B981' }
+          ]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+      });
+    }
+
+    function renderTables(data) {
+      const searchQ = (document.getElementById('searchAdv').value || '').toLowerCase();
+      const advMap = {};
+      data.forEach(o => {
+        const key = o.advName;
+        if (!advMap[key]) {
+          advMap[key] = { team: o.team, group: o.advGroup, name: o.advName, total: 0, closing: 0, shipped: 0, paid: 0, unpaidPC: 0, cod: 0, bt: 0 };
+        }
+        const a = advMap[key];
+        a.total++;
+        if (o.status === 'processing' || o.status === 'completed') a.closing++;
+        if (o.status === 'completed') a.shipped++;
+        if (o.payStatus === 'paid') a.paid++;
+        if (o.payStatus === 'unpaid' && (o.status === 'processing' || o.status === 'completed')) a.unpaidPC++;
+        if (o.payMethod === 'cod') a.cod++;
+        if (o.payMethod === 'bank_transfer') a.bt++;
+      });
+
+      const advRows = Object.values(advMap)
+        .filter(a => a.name.toLowerCase().includes(searchQ) || a.group.toLowerCase().includes(searchQ) || a.team.toLowerCase().includes(searchQ))
+        .sort((a, b) => b.total - a.total);
+
+      document.getElementById('tableAdvBody').innerHTML = advRows.map(a => {
+        const pr = a.total ? ((a.paid / a.total) * 100).toFixed(2) + '%' : '0%';
+        return `<tr class="hover:bg-slate-50">
+          <td class="py-2 px-3 font-semibold">${a.team}</td>
+          <td class="py-2 px-3 text-slate-600">${a.group}</td>
+          <td class="py-2 px-3 font-medium text-slate-900">${a.name}</td>
+          <td class="py-2 px-3 text-right font-semibold">${a.total.toLocaleString('id-ID')}</td>
+          <td class="py-2 px-3 text-right">${a.closing.toLocaleString('id-ID')}</td>
+          <td class="py-2 px-3 text-right">${a.shipped.toLocaleString('id-ID')}</td>
+          <td class="py-2 px-3 text-right font-bold text-emerald-700">${a.paid.toLocaleString('id-ID')}</td>
+          <td class="py-2 px-3 text-right font-bold text-emerald-700">${pr}</td>
+          <td class="py-2 px-3 text-right font-semibold text-rose-600">${a.unpaidPC.toLocaleString('id-ID')}</td>
+          <td class="py-2 px-3 text-right">${a.cod.toLocaleString('id-ID')}</td>
+          <td class="py-2 px-3 text-right">${a.bt.toLocaleString('id-ID')}</td>
+        </tr>`;
+      }).join('');
+
+      // CS Table
+      const csMap = {};
+      data.forEach(o => {
+        if (!csMap[o.cs]) csMap[o.cs] = { cs: o.cs, total: 0, closing: 0, shipped: 0, paid: 0, unpaidPC: 0 };
+        const c = csMap[o.cs];
+        c.total++;
+        if (o.status === 'processing' || o.status === 'completed') c.closing++;
+        if (o.status === 'completed') c.shipped++;
+        if (o.payStatus === 'paid') c.paid++;
+        if (o.payStatus === 'unpaid' && (o.status === 'processing' || o.status === 'completed')) c.unpaidPC++;
+      });
+
+      const csRows = Object.values(csMap).sort((a, b) => b.total - a.total);
+      document.getElementById('tableCSBody').innerHTML = csRows.map(c => {
+        const cr = c.total ? ((c.closing / c.total) * 100).toFixed(2) + '%' : '0%';
+        const pr = c.total ? ((c.paid / c.total) * 100).toFixed(2) + '%' : '0%';
+        const c2p = c.closing ? ((c.paid / c.closing) * 100).toFixed(2) + '%' : '0%';
+        return `<tr class="hover:bg-slate-50">
+          <td class="py-2 px-4 font-bold text-slate-900">${c.cs}</td>
+          <td class="py-2 px-4 text-right font-semibold">${c.total.toLocaleString('id-ID')}</td>
+          <td class="py-2 px-4 text-right">${c.closing.toLocaleString('id-ID')}</td>
+          <td class="py-2 px-4 text-right">${cr}</td>
+          <td class="py-2 px-4 text-right">${c.shipped.toLocaleString('id-ID')}</td>
+          <td class="py-2 px-4 text-right font-bold text-emerald-700">${c.paid.toLocaleString('id-ID')}</td>
+          <td class="py-2 px-4 text-right font-semibold text-rose-600">${c.unpaidPC.toLocaleString('id-ID')}</td>
+          <td class="py-2 px-4 text-right font-bold text-emerald-700">${pr}</td>
+          <td class="py-2 px-4 text-right font-bold text-blue-700">${c2p}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // Event Listeners
+    document.getElementById('csvInput').addEventListener('change', e => handleFiles(e.target.files));
+    ['filterMonth', 'filterTeam', 'filterGroup', 'filterMethod', 'filterCS'].forEach(id => {
+      document.getElementById(id).addEventListener('change', renderDashboard);
+    });
+    document.getElementById('searchAdv').addEventListener('input', () => renderTables(getFilteredOrders()));
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      allOrdersMap.clear();
+      document.getElementById('fileStatus').innerText = 'Data telah direset. Silakan unggah file CSV baru.';
+      populateFilters();
+      renderDashboard();
+    });
+
+    const dz = document.getElementById('dropzone');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('bg-blue-100'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('bg-blue-100'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault();
+      dz.classList.remove('bg-blue-100');
+      handleFiles(e.dataTransfer.files);
+    });
+  </script>
+</body>
+</html>
